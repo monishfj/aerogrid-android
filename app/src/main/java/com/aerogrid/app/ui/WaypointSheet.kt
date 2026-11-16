@@ -26,6 +26,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,7 +43,7 @@ import com.aerogrid.app.model.TurnMode
 fun WaypointSheet(vm: PlannerViewModel, ui: PlannerUi, batch: Boolean, onDismiss: () -> Unit) {
     val p = ui.project
     val targets = if (batch) ui.selectedWaypoints else p.waypoints.filter { it.id == ui.editingId }
-    if (targets.isEmpty()) { onDismiss(); return }
+    if (targets.isEmpty()) { LaunchedEffect(Unit) { onDismiss() }; return }
     val ids = targets.map { it.id }.toSet()
     val w = targets.first()
     val index = p.waypoints.indexOfFirst { it.id == w.id }

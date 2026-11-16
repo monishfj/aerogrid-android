@@ -52,6 +52,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.locationtech.jts.simplify.DouglasPeuckerSimplifier
 import java.io.File
 import java.net.HttpURLConnection
@@ -143,10 +147,15 @@ class PlannerViewModel(app: Application) : AndroidViewModel(app), MapCallbacks {
     private val p get() = _ui.value.project
 
     // ---------------- project lifecycle ----------------
-    fun open(id: Long?, mode: Mode) {
-        if (_ui.value.loaded && id != null && id == p.id) { setMode(mode); return }
+    fun open(id: Long?, requestedMode: Mode) {
         viewModelScope.launch {
-            val proj = id?.let { repo.load(it) } ?: Project(settings = settings.value.defaultSettings, camera = settings.value.camera).let {
+            // Persist unsaved edits of whatever was open, then always read fresh from the database so
+            // changes made elsewhere (rename/duplicate/delete in the Library) are never overwritten.
+            if (dirty) saveNow()
+            saveJob?.cancel()
+            val stored = id?.let { repo.load(it) }
+            val mode = if (stored?.settings?.pattern == FlightPattern.MANUAL && requestedMode == Mode.QUICK) Mode.MANUAL else requestedMode
+            val proj = stored ?: Project(settings = settings.value.defaultSettings, camera = settings.value.camera).let {
                 if (mode == Mode.MANUAL) it.copy(name = "Manual route", settings = it.settings.copy(pattern = FlightPattern.MANUAL, speedMs = 5.0, altitudeMode = com.aerogrid.app.model.AltitudeMode.RELATIVE_TAKEOFF)) else it
             }
             undo.clear(); redo.clear()
@@ -195,19 +204,42 @@ class PlannerViewModel(app: Application) : AndroidViewModel(app), MapCallbacks {
         }
     }
 
+    /** True when the in-memory mission has changes that are not yet in the database. */
+    @Volatile private var dirty = false
+    private val saveMutex = Mutex()
+
     private fun scheduleSave() {
+        dirty = true
         saveJob?.cancel()
         saveJob = viewModelScope.launch { delay(1200); saveNow() }
     }
 
-    suspend fun saveNow(): Project {
-        val stored = repo.save(p)
-        if (p.id == 0L) _ui.update { it.copy(project = it.project.copy(id = stored.id)) }
-        _ui.update { it.copy(savedAt = System.currentTimeMillis()) }
-        return _ui.value.project
+    /**
+     * Writes the current mission. Saves are serialised so a new mission is inserted exactly once
+     * (autosave racing an explicit save used to create duplicate rows).
+     */
+    suspend fun saveNow(): Project = saveMutex.withLock {
+        val snapshot = p
+        val stored = repo.save(snapshot)
+        _ui.update { u ->
+            val withId = if (u.project.id == 0L) u.project.copy(id = stored.id) else u.project
+            u.copy(project = withId, savedAt = System.currentTimeMillis())
+        }
+        if (p.copy(id = 0) == snapshot.copy(id = 0)) dirty = false
+        _ui.value.project
     }
 
-    fun save(then: ((Long) -> Unit)? = null) = viewModelScope.launch { val s = saveNow(); msg("Mission saved"); then?.invoke(s.id) }
+    /** Explicit save; also guarantees an id for screens that need one (e.g. Transfer). */
+    fun save(then: ((Long) -> Unit)? = null) = viewModelScope.launch {
+        val s = if (dirty || p.id == 0L) saveNow() else p
+        msg("Mission saved"); then?.invoke(s.id)
+    }
+
+    /** Leaving the planner: flush pending edits only — never rewrite an unchanged mission. */
+    fun close() {
+        saveJob?.cancel()
+        if (dirty) CoroutineScope(Dispatchers.IO + NonCancellable).launch { saveNow() }
+    }
     fun rename(name: String) = commit(p.copy(name = name.ifBlank { "Untitled mission" }))
 
     // ---------------- tools & drawing ----------------
@@ -584,8 +616,7 @@ class PlannerViewModel(app: Application) : AndroidViewModel(app), MapCallbacks {
 
     fun offlineMessage(t: String) = msg(t)
 
-    override fun onCleared() { simJob?.cancel(); val last = p; if (last.loaded()) kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.NonCancellable).launch { repo.save(last) } }
-    private fun Project.loaded() = _ui.value.loaded && (boundaries.isNotEmpty() || waypoints.isNotEmpty() || id != 0L)
+    override fun onCleared() { simJob?.cancel(); close() }
 
     companion object {
         val TAVUA = GeoPoint(-17.4442, 177.8646)

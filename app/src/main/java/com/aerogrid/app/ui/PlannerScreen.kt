@@ -11,6 +11,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -183,7 +187,7 @@ fun PlannerScreen(vm: PlannerViewModel, projectId: Long?, initialMode: Mode, set
         when {
             ui.sim != null -> vm.stopSimulation()
             ui.tool != Tool.NONE -> vm.cancelDraft()
-            else -> { vm.save(); onBack() }
+            else -> { vm.close(); onBack() }
         }
     }
 
@@ -193,7 +197,7 @@ fun PlannerScreen(vm: PlannerViewModel, projectId: Long?, initialMode: Mode, set
         // ---------- top overlay ----------
         Column(Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SoftIconTile(Icons.AutoMirrored.Filled.ArrowBack, "Back", onClick = { vm.save(); onBack() }, size = 46.dp)
+                SoftIconTile(Icons.AutoMirrored.Filled.ArrowBack, "Back", onClick = { vm.close(); onBack() }, size = 46.dp)
                 SoftSegmented(Mode.entries, ui.mode, { it.label }, { vm.setMode(it) }, Modifier.weight(1f).padding(horizontal = 10.dp))
                 OverflowMenu(ui, onRename = { showRename = true }, onSave = { vm.save() }, onExport = { showExport = true }, onImport = doImport,
                     onReverse = vm::reverseRoute, onReset = vm::resetRoute, onStyle = { s -> settingsStore.update { it.copy(mapStyle = s) } },
@@ -530,9 +534,13 @@ private fun AdvancedPanel(ui: PlannerUi, vm: PlannerViewModel, settings: com.aer
 
 @Composable
 private fun RenameDialog(name: String, location: String, onDismiss: () -> Unit, onOk: (String, String) -> Unit) {
-    var n by remember { mutableStateOf(name) }; var l by remember { mutableStateOf(location) }
-    AlertDialog(onDismissRequest = onDismiss, confirmButton = { TextButton(onClick = { onOk(n, l) }) { Text("Save") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    // Old name is pre-selected so typing replaces it.
+    var n by remember { mutableStateOf(TextFieldValue(name, TextRange(0, name.length))) }
+    var l by remember { mutableStateOf(location) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    AlertDialog(onDismissRequest = onDismiss, confirmButton = { TextButton(onClick = { onOk(n.text.trim().ifBlank { name }, l.trim()) }) { Text("Save") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text("Mission details") }, text = {
-            Column { OutlinedTextField(n, { n = it }, label = { Text("Name") }, singleLine = true); OutlinedTextField(l, { l = it }, label = { Text("Location") }, singleLine = true) }
+            Column { OutlinedTextField(n, { n = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.focusRequester(focus)); OutlinedTextField(l, { l = it }, label = { Text("Location") }, singleLine = true) }
         })
 }

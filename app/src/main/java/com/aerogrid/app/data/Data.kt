@@ -75,7 +75,12 @@ class ProjectRepository(private val dao: ProjectDao) {
 
     suspend fun delete(id: Long) = dao.delete(id)
     suspend fun duplicate(id: Long): Project? = load(id)?.let { save(it.copy(id = 0, name = it.name + " (copy)", created = System.currentTimeMillis())) }
-    suspend fun rename(id: Long, name: String) { load(id)?.let { save(it.copy(name = name)) } }
+    /** Renames a mission; blank names are ignored so a mission can't lose its name. */
+    suspend fun rename(id: Long, name: String): Boolean {
+        val clean = name.trim().take(80)
+        if (clean.isEmpty()) return false
+        return load(id)?.let { save(it.copy(name = clean)); true } ?: false
+    }
     suspend fun backupAll(): ByteArray = BackupCodec.encode(dao.all().map(::decode))
     suspend fun restore(bytes: ByteArray): Int { val ps = BackupCodec.decode(bytes); ps.forEach { save(it.copy(id = 0)) }; return ps.size }
 }

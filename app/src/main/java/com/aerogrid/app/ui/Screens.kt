@@ -60,6 +60,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -161,12 +165,15 @@ fun LibraryScreen(app: AeroGridApp, onOpen: (Long) -> Unit, onBack: () -> Unit) 
         scope.launch {
             try {
                 val bytes = withContext(Dispatchers.IO) { ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes() } }
-                val name = uri.lastPathSegment ?: "file"
+                // Use the real file name (content URIs often end in opaque ids such as "msf:1000034").
+                val name = ctx.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: uri.lastPathSegment ?: "file"
+                val base = name.substringBeforeLast('.').replace('_', ' ').trim().take(60).ifBlank { "Imported mission" }
                 val n = when (val kind = GeoImport.detect(name, bytes)) {
                     "aerogrid" -> app.repo.restore(bytes)
-                    "dji" -> { val m = WpmlReader.read(bytes); app.repo.save(Project(name = "Imported DJI mission", waypoints = m.waypoints, nextId = m.waypoints.size + 1L,
+                    "dji" -> { val m = WpmlReader.read(bytes); app.repo.save(Project(name = base, waypoints = m.waypoints, nextId = m.waypoints.size + 1L,
                         settings = app.settings.state.value.defaultSettings.copy(pattern = com.aerogrid.app.model.FlightPattern.MANUAL, altitudeMode = com.aerogrid.app.model.AltitudeMode.RELATIVE_TAKEOFF))); 1 }
-                    else -> { val g = GeoImport.parse(name, bytes); app.repo.save(Project(name = g.name ?: "Imported $kind", settings = app.settings.state.value.defaultSettings).withImported(g, false)); 1 }
+                    else -> { val g = GeoImport.parse(name, bytes); app.repo.save(Project(name = g.name?.trim()?.takeIf { it.isNotEmpty() && !it.endsWith(".kml", true) } ?: base, settings = app.settings.state.value.defaultSettings).withImported(g, false)); 1 }
                 }
                 snack.showSnackbar("Imported $n project(s)")
             } catch (e: Exception) { snack.showSnackbar("Import failed: ${e.message}") }
@@ -213,9 +220,14 @@ fun LibraryScreen(app: AeroGridApp, onOpen: (Long) -> Unit, onBack: () -> Unit) 
         }
     }
     renaming?.let { s ->
-        var n by remember(s) { mutableStateOf(s.name) }
-        AlertDialog(onDismissRequest = { renaming = null }, title = { Text("Rename mission") }, text = { OutlinedTextField(n, { n = it }, singleLine = true) },
-            confirmButton = { TextButton(onClick = { scope.launch { app.repo.rename(s.id, n) }; renaming = null }) { Text("Save") } }, dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } })
+        // Old name is pre-selected so typing replaces it.
+        var n by remember(s) { mutableStateOf(TextFieldValue(s.name, TextRange(0, s.name.length))) }
+        val focus = remember(s) { FocusRequester() }
+        androidx.compose.runtime.LaunchedEffect(s) { focus.requestFocus() }
+        AlertDialog(onDismissRequest = { renaming = null }, title = { Text("Rename mission") },
+            text = { OutlinedTextField(n, { n = it }, singleLine = true, label = { Text("Name") }, modifier = Modifier.focusRequester(focus)) },
+            confirmButton = { TextButton(enabled = n.text.isNotBlank(), onClick = { scope.launch { app.repo.rename(s.id, n.text) }; renaming = null }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } })
     }
     deleting?.let { s ->
         AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Delete \"${s.name}\"?") }, text = { Text("This permanently removes the mission from this device. Export a backup first if you may need it.") },

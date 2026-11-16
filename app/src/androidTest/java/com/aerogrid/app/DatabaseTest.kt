@@ -28,7 +28,11 @@ class DatabaseTest {
         assertEquals(p.waypoints, loaded.waypoints)
         assertEquals(65.0, loaded.waypoints[1].heightOverride!!, 0.0)
         assertEquals(1, repo.summaries.first().size)
-        repo.rename(saved.id, "Renamed"); assertEquals("Renamed", repo.load(saved.id)!!.name)
+        repo.rename(saved.id, "  Renamed  "); assertEquals("Renamed", repo.load(saved.id)!!.name)
+        // blank names are rejected and keep the existing name
+        assertEquals(false, repo.rename(saved.id, "   ")); assertEquals("Renamed", repo.load(saved.id)!!.name)
+        // a rename survives later reads of the same row (regression: planner used to overwrite it)
+        val again = repo.load(saved.id)!!; assertEquals("Renamed", again.name); assertEquals(p.waypoints, again.waypoints)
         val dup = repo.duplicate(saved.id)!!; assertEquals(2, repo.summaries.first().size)
         val backup = repo.backupAll()
         repo.delete(saved.id); repo.delete(dup.id); assertNull(repo.load(saved.id))
