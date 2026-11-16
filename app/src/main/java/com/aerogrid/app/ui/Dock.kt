@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -64,6 +65,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -96,11 +100,9 @@ fun qualityColor(level: Int, err: Color) = when (level) { 0 -> GOOD; 1 -> OK; 2 
 
 @Composable
 fun DockSurface(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Surface(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.94f), shadowElevation = 8.dp,
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))) {
-        Column(Modifier.animateContentSize().padding(horizontal = 12.dp, vertical = 10.dp)) { content() }
-    }
+    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+    Column(modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).neu(32.dp, 10.dp, soft.card)
+        .clip(RoundedCornerShape(32.dp)).background(soft.card).animateContentSize().padding(horizontal = 16.dp, vertical = 14.dp)) { content() }
 }
 
 /** Glass strip of key numbers with a tappable issues badge. */
@@ -132,26 +134,42 @@ fun StatStrip(items: List<Pair<String, String>>, ui: PlannerUi, warnFirstOf: Set
 enum class StepState { DONE, NEXT, TODO, ACTIVE, DISABLED }
 data class Step(val label: String, val icon: ImageVector, val state: StepState, val onClick: () -> Unit)
 
-/** Connected workflow rail: done steps show a check, the recommended next step expands into the primary button. */
+/**
+ * Timeline stepper (kit 2019–2022 timeline): a gradient progress line through raised white knobs,
+ * with label pills below; the recommended next / active step gets a gradient pill.
+ */
 @Composable
 fun StepRail(steps: List<Step>) {
     val haptic = LocalHapticFeedback.current
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-        steps.forEachIndexed { i, s ->
-            if (i > 0) Box(Modifier.width(10.dp).height(2.dp).background(if (s.state == StepState.DONE || steps[i - 1].state == StepState.DONE) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant))
+    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+    val reach = steps.indexOfLast { it.state == StepState.DONE || it.state == StepState.NEXT || it.state == StepState.ACTIVE }
+    Row(Modifier.fillMaxWidth().drawBehind {
+        val n = steps.size; if (n < 2) return@drawBehind
+        val y = 17.dp.toPx(); val c = { i: Int -> size.width * (i + 0.5f) / n }
+        drawLine(soft.track, Offset(c(0), y), Offset(c(n - 1), y), 5.dp.toPx(), StrokeCap.Round)
+        if (reach > 0) drawLine(soft.gradient, Offset(c(0), y), Offset(c(reach), y), 5.dp.toPx(), StrokeCap.Round)
+    }) {
+        steps.forEach { s ->
             val enabled = s.state != StepState.DISABLED
-            val expanded = s.state == StepState.NEXT || s.state == StepState.ACTIVE
-            val bg by animateColorAsState(when (s.state) {
-                StepState.NEXT -> MaterialTheme.colorScheme.primary; StepState.ACTIVE -> MaterialTheme.colorScheme.tertiary
-                StepState.DONE -> MaterialTheme.colorScheme.primaryContainer; else -> MaterialTheme.colorScheme.surfaceVariant
-            }, label = "step")
-            val fg = when (s.state) { StepState.NEXT -> MaterialTheme.colorScheme.onPrimary; StepState.ACTIVE -> MaterialTheme.colorScheme.onTertiary
-                StepState.DONE -> MaterialTheme.colorScheme.onPrimaryContainer; StepState.DISABLED -> MaterialTheme.colorScheme.outline; else -> MaterialTheme.colorScheme.onSurfaceVariant }
-            Surface(onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); s.onClick() }, enabled = enabled, shape = RoundedCornerShape(50), color = bg,
-                modifier = Modifier.height(44.dp).animateContentSize()) {
-                Row(Modifier.padding(horizontal = if (expanded) 16.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (s.state == StepState.DONE) Icons.Default.Check else s.icon, s.label, tint = fg, modifier = Modifier.size(20.dp))
-                    if (expanded) { Spacer(Modifier.width(6.dp)); Text(s.label, color = fg, fontWeight = if (expanded) FontWeight.Bold else FontWeight.Medium, maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+            val hot = s.state == StepState.NEXT || s.state == StepState.ACTIVE
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                .clickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); s.onClick() }
+                .padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(30.dp).shadow(6.dp, CircleShape, ambientColor = soft.gradEnd, spotColor = soft.gradEnd).clip(CircleShape).background(androidx.compose.ui.graphics.Color.White),
+                    contentAlignment = Alignment.Center) {
+                    when {
+                        s.state == StepState.DONE -> Box(Modifier.size(18.dp).clip(CircleShape).background(soft.gradient), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Check, s.label, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(12.dp)) }
+                        hot -> Box(Modifier.size(14.dp).clip(CircleShape).background(soft.gradient))
+                        else -> Icon(s.icon, s.label, tint = if (enabled) soft.muted else soft.muted.copy(alpha = 0.4f), modifier = Modifier.size(16.dp))
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.wrapContentWidth(unbounded = true).then(if (hot) Modifier.shadow(8.dp, RoundedCornerShape(50), ambientColor = soft.gradEnd, spotColor = soft.gradEnd) else Modifier)
+                    .clip(RoundedCornerShape(50)).background(if (hot) soft.gradient else Brush.horizontalGradient(listOf(soft.card, soft.card)))
+                    .padding(horizontal = 9.dp, vertical = 5.dp)) {
+                    Text(s.label, fontSize = 11.sp, fontWeight = if (hot) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false,
+                        color = if (hot) androidx.compose.ui.graphics.Color.White else if (enabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f) else soft.muted.copy(alpha = 0.5f))
                 }
             }
         }
@@ -166,18 +184,20 @@ data class Param(
 /** Row of parameter chips; one opens at a time into a ruler scrubber. */
 @Composable
 fun ParamBar(params: List<Param>, open: String?, onOpen: (String?) -> Unit, trailing: @Composable () -> Unit = {}, extra: @Composable (String) -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 6.dp, start = 2.dp, end = 2.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         params.forEach { p ->
             val sel = p.key == open
-            Surface(onClick = { onOpen(if (sel) null else p.key) }, shape = RoundedCornerShape(14.dp),
-                color = if (sel) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                border = BorderStroke(if (sel) 1.5.dp else 1.dp, p.color ?: if (sel) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant)) {
-                Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
-                    Text(p.label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (p.color != null) { Box(Modifier.size(7.dp).clip(CircleShape).background(p.color)); Spacer(Modifier.width(4.dp)) }
-                        Text(p.format(p.value), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                    }
+            val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+            val fg = if (sel) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
+            Column(Modifier.padding(vertical = 6.dp)
+                .then(if (sel) Modifier.shadow(10.dp, RoundedCornerShape(18.dp), ambientColor = soft.gradEnd, spotColor = soft.gradEnd) else Modifier.neu(18.dp, 5.dp, soft.card))
+                .clip(RoundedCornerShape(18.dp)).background(if (sel) soft.gradient else Brush.horizontalGradient(listOf(soft.card, soft.card)))
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onOpen(if (sel) null else p.key) }
+                .padding(horizontal = 14.dp, vertical = 7.dp)) {
+                Text(p.label, fontSize = 10.sp, color = if (sel) fg.copy(alpha = 0.85f) else soft.muted, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (p.color != null) { Box(Modifier.size(7.dp).clip(CircleShape).background(if (sel) androidx.compose.ui.graphics.Color.White else p.color)); Spacer(Modifier.width(4.dp)) }
+                    Text(p.format(p.value), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, maxLines = 1, color = fg)
                 }
             }
         }
@@ -200,6 +220,7 @@ fun RulerScrubber(p: Param) {
     val stepPx = with(LocalDensity.current) { 12.dp.toPx() }
     val tm = rememberTextMeasurer()
     val accent = p.color ?: MaterialTheme.colorScheme.primary
+    val rulerGrad = com.aerogrid.app.ui.theme.LocalSoft.current.gradientV
     val tick = MaterialTheme.colorScheme.onSurfaceVariant
     val labelStyle = TextStyle(fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     fun snap(x: Double) = (floor(x / p.step + 0.5) * p.step).coerceIn(p.range)
@@ -229,7 +250,7 @@ fun RulerScrubber(p: Param) {
                         drawText(t, topLeft = Offset(x - t.size.width / 2, size.height * 0.62f), alpha = fade)
                     }
                 }
-                drawLine(accent, Offset(cx, 0f), Offset(cx, size.height * 0.62f), 6f)
+                drawLine(if (p.color != null) Brush.verticalGradient(listOf(accent, accent)) else rulerGrad, Offset(cx, 0f), Offset(cx, size.height * 0.62f), 7f, StrokeCap.Round)
                 drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)), size = size)
             }
         }
@@ -253,7 +274,7 @@ fun QuickDock(ui: PlannerUi, vm: PlannerViewModel, onSettings: () -> Unit, onTra
             active -> StepState.ACTIVE; !enabled -> StepState.DISABLED; isNext -> StepState.NEXT; done -> StepState.DONE; else -> StepState.TODO }
         Box {
             StepRail(listOf(
-                Step(if (hasB) "Boundary" else "Draw boundary", Icons.Default.Draw, state(hasB, true, !hasB, ui.tool in setOf(Tool.DRAW_BOUNDARY, Tool.FREEHAND, Tool.EDIT_SHAPES))) {
+                Step("Boundary", Icons.Default.Draw, state(hasB, true, !hasB, ui.tool in setOf(Tool.DRAW_BOUNDARY, Tool.FREEHAND, Tool.EDIT_SHAPES))) {
                     if (!hasB) vm.setTool(Tool.DRAW_BOUNDARY) else boundaryMenu = true },
                 Step("Generate", Icons.Default.GridOn, state(hasW, hasB && !ui.busy, hasB && !hasW)) { vm.generate() },
                 Step("Edit", Icons.Default.Edit, state(false, hasW, false, ui.tool == Tool.EDIT_WAYPOINTS)) { vm.setTool(if (ui.tool == Tool.EDIT_WAYPOINTS) Tool.NONE else Tool.EDIT_WAYPOINTS) },
@@ -331,7 +352,7 @@ fun ManualDock(ui: PlannerUi, vm: PlannerViewModel, onTransfer: () -> Unit, onBa
             Step("Move", Icons.Default.Edit, if (ui.tool == Tool.EDIT_WAYPOINTS) StepState.ACTIVE else if (p.waypoints.isEmpty()) StepState.DISABLED else StepState.TODO) { vm.setTool(if (ui.tool == Tool.EDIT_WAYPOINTS) Tool.NONE else Tool.EDIT_WAYPOINTS) },
             Step("Takeoff", Icons.Default.FlightTakeoff, if (ui.tool == Tool.SET_TAKEOFF) StepState.ACTIVE else if (p.takeoff != null) StepState.DONE else StepState.TODO) { vm.setTool(Tool.SET_TAKEOFF) },
             Step("Preview", Icons.Default.PlayArrow, if (ready) StepState.TODO else StepState.DISABLED) { vm.startSimulation() },
-            Step("Save KMZ", Icons.Default.Save, if (ready) StepState.TODO else StepState.DISABLED) { vm.exportKmz(null, share = false) },
+            Step("Save", Icons.Default.Save, if (ready) StepState.TODO else StepState.DISABLED) { vm.exportKmz(null, share = false) },
             Step("Transfer", Icons.Default.SendToMobile, if (ready && ui.tool == Tool.NONE) StepState.NEXT else if (ready) StepState.TODO else StepState.DISABLED) { onTransfer() },
         ))
         Text(when (ui.tool) {

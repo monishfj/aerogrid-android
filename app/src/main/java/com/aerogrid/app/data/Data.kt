@@ -83,7 +83,7 @@ class ProjectRepository(private val dao: ProjectDao) {
 @Serializable
 data class AppSettings(
     val theme: Int = 0, // 0 system, 1 light, 2 dark
-    val dynamicColor: Boolean = true,
+    val materialYou: Boolean = false,
     val streetStyleUrl: String = "https://tiles.openfreemap.org/styles/liberty",
     val satelliteTilesUrl: String = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     val satelliteAttribution: String = "Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community",

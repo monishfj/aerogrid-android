@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         val app = application as AeroGridApp
         setContent {
             val s by app.settings.state.collectAsState()
-            AeroGridTheme(s.theme, s.dynamicColor) {
+            AeroGridTheme(s.theme, s.materialYou) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     // route: "home" | "plan:<id>:<mode>" | "library" | "transfer:<id>" | "settings"
                     var route by rememberSaveable { mutableStateOf("home") }

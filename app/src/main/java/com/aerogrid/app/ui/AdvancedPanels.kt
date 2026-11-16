@@ -81,9 +81,7 @@ fun MappingTab(vm: PlannerViewModel, ui: PlannerUi) {
     val p = ui.project; val s = p.settings; val cam = p.camera
     Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp)) {
         Dropdown("Flight pattern", FlightPattern.entries, s.pattern, { PATTERN_LABEL[it]!! }) { v -> vm.updateSettings { it.copy(pattern = v) } }
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            CaptureStrategy.entries.forEachIndexed { i, c -> SegmentedButton(selected = s.capture == c, onClick = { vm.updateSettings { it.copy(capture = c) } }, shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(if (c == CaptureStrategy.TIMED_INTERVAL) "Timed photos" else "Photo per waypoint") } }
-        }
+        SoftSegmented(CaptureStrategy.entries, s.capture, { if (it == CaptureStrategy.TIMED_INTERVAL) "Timed photos" else "Photo per waypoint" }, { c -> vm.updateSettings { it.copy(capture = c) } }, Modifier.fillMaxWidth().padding(vertical = 6.dp))
         SectionTitle("Altitude & resolution")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NumberField("Flight height", s.heightM, Modifier.weight(1f), suffix = "m") { v -> vm.setGlobalHeight(v) }
@@ -175,6 +173,18 @@ fun WaypointsTab(vm: PlannerViewModel, ui: PlannerUi, onEditBatch: () -> Unit, o
 @Composable
 fun AnalysisTab(ui: PlannerUi) {
     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                RingGauge((ui.stats.frontOverlap / 100).toFloat(), "%.0f%%".format(ui.stats.frontOverlap), size = 110.dp)
+                Text("Forward overlap", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val q = com.aerogrid.app.engine.OverlapAdvice.side(ui.stats.sideOverlap)
+                RingGauge((ui.stats.sideOverlap / 100).toFloat().coerceAtLeast(0f), "%.0f%%".format(ui.stats.sideOverlap), size = 110.dp,
+                    color = if (q.level == 0) null else qualityColor(q.level, MaterialTheme.colorScheme.error))
+                Text("Side overlap", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
         SectionTitle("Mission analysis")
         Reports.statsLines(ui.project, ui.stats).forEach { (k, v) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) { Text(k, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium); Text(v, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium) }
@@ -225,7 +235,8 @@ fun TerrainTab(vm: PlannerViewModel, ui: PlannerUi, onImportDem: () -> Unit) {
 @Composable
 fun TerrainProfile(samples: List<Terrain.ProfileSample>) {
     if (samples.size < 2) { Text("Generate a route to see the profile", style = MaterialTheme.typography.bodySmall); return }
-    val ground = MaterialTheme.colorScheme.tertiary; val air = MaterialTheme.colorScheme.primary; val grid = MaterialTheme.colorScheme.outlineVariant
+    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+    val air = soft.gradEnd; val grid = MaterialTheme.colorScheme.outlineVariant
     Canvas(Modifier.fillMaxWidth().height(140.dp).padding(vertical = 6.dp)) {
         val maxD = samples.last().distM.coerceAtLeast(1.0)
         val ys = samples.flatMap { listOfNotNull(it.groundM, it.aircraftM) }
@@ -236,10 +247,10 @@ fun TerrainProfile(samples: List<Terrain.ProfileSample>) {
         val g = samples.filter { it.groundM != null }
         if (g.size >= 2) {
             val path = Path().apply { moveTo(x(g.first().distM), size.height); g.forEach { lineTo(x(it.distM), y(it.groundM!!)) }; lineTo(x(g.last().distM), size.height); close() }
-            drawPath(path, ground.copy(alpha = 0.35f))
+            drawPath(path, androidx.compose.ui.graphics.Brush.verticalGradient(listOf(soft.gradStart.copy(alpha = 0.85f), soft.gradEnd.copy(alpha = 0.35f))))
         }
         val a = Path().apply { moveTo(x(samples.first().distM), y(samples.first().aircraftM)); samples.forEach { lineTo(x(it.distM), y(it.aircraftM)) } }
-        drawPath(a, air, style = Stroke(3f))
+        drawPath(a, air, style = Stroke(5f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
     }
     Text("Blue: aircraft altitude · Green: terrain (DEM)" + if (samples.all { it.groundM == null }) " — no DEM loaded" else "", style = MaterialTheme.typography.bodySmall)
 }

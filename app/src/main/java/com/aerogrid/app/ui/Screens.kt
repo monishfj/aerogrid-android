@@ -3,6 +3,10 @@ package com.aerogrid.app.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -81,51 +85,60 @@ import java.util.Locale
 fun DashboardScreen(app: AeroGridApp, onPlan: (Long?, Mode) -> Unit, onLibrary: () -> Unit, onTransfer: () -> Unit, onSettings: () -> Unit) {
     val projects by app.repo.summaries.collectAsState(initial = emptyList())
     val ctx = LocalContext.current
-    Scaffold { pad ->
-        Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+    Scaffold(containerColor = soft.bg) { pad ->
+        Column(Modifier.padding(pad).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("AeroGrid", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Black)
-                    Text("Photogrammetry flight planning for DJI Fly", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("AeroGrid", style = MaterialTheme.typography.displaySmall, modifier = Modifier.gradientTint(soft.gradient))
+                    Text("Drone mapping missions for DJI Fly", style = MaterialTheme.typography.bodyMedium, color = soft.muted)
                 }
-                IconButton(onClick = onSettings) { Icon(Icons.Default.Settings, "Settings") }
+                SoftIconTile(Icons.Default.Settings, "Settings", onClick = onSettings, size = 50.dp)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ModeCard("Quick", "Draw → Generate → Export", Icons.Default.GridOn, Modifier.weight(1f), primary = true) { onPlan(null, Mode.QUICK) }
+            // Hero: start a Quick plan
+            SoftCard(Modifier.fillMaxWidth(), radius = 32.dp, padding = 22.dp) {
+                Text("Plan a mapping flight", style = MaterialTheme.typography.titleLarge)
+                Text("Draw an area, get an optimised grid, send it to DJI Fly.", style = MaterialTheme.typography.bodyMedium, color = soft.muted, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp))
+                GradientButton("Start Quick plan", { onPlan(null, Mode.QUICK) }, Modifier.fillMaxWidth(), icon = Icons.Default.GridOn)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 ModeCard("Manual", "Plot your own waypoints", Icons.Default.Place, Modifier.weight(1f)) { onPlan(null, Mode.MANUAL) }
                 ModeCard("Advanced", "Full mission control", Icons.Default.Tune, Modifier.weight(1f)) { onPlan(null, Mode.ADVANCED) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilledTonalButton(onClick = onLibrary, Modifier.weight(1f)) { Icon(Icons.Default.Folder, null); HSpace(6); Text("Mission Library") }
-                FilledTonalButton(onClick = onTransfer, Modifier.weight(1f)) { Icon(Icons.Default.SendToMobile, null); HSpace(6); Text("DJI Fly Transfer") }
-            }
-            if (!ExternalTransfer.djiFlyInstalled(ctx)) Text("DJI Fly is not installed on this device — KMZ export and external transfer remain available.", style = MaterialTheme.typography.bodySmall)
-            Text("Recent missions", style = MaterialTheme.typography.titleMedium)
-            if (projects.isEmpty()) Text("No missions yet. Start with Quick planning.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SoftPillButton("Mission Library", Icons.Default.Folder, onLibrary, Modifier.fillMaxWidth(), accent = true)
+            SoftPillButton("DJI Fly Transfer", Icons.Default.SendToMobile, onTransfer, Modifier.fillMaxWidth())
+            if (!ExternalTransfer.djiFlyInstalled(ctx)) Text("DJI Fly isn't installed on this device — KMZ export and PC transfer still work.", style = MaterialTheme.typography.bodySmall, color = soft.muted)
+            if (projects.isNotEmpty()) Text("Recent missions", style = MaterialTheme.typography.titleMedium)
             projects.take(6).forEach { s -> ProjectRow(s, onOpen = { onPlan(s.id, Mode.QUICK) }) }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
 private fun ModeCard(title: String, sub: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, primary: Boolean = false, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = modifier.height(140.dp), shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = if (primary) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer)) {
-        Column(Modifier.padding(18.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
-            Icon(icon, null, Modifier.size(34.dp))
-            Column { Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, maxLines = 1); Text(sub, style = MaterialTheme.typography.bodySmall) }
-        }
+    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+    SoftCard(modifier.height(150.dp).clickable(onClick = onClick), radius = 28.dp, padding = 18.dp) {
+        Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(if (primary) soft.gradientV else androidx.compose.ui.graphics.Brush.verticalGradient(listOf(soft.bg, soft.bg))),
+            contentAlignment = Alignment.Center) { if (primary) Icon(icon, null, tint = androidx.compose.ui.graphics.Color.White) else GradientIcon(icon, null) }
+        Spacer(Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(sub, style = MaterialTheme.typography.bodySmall, color = soft.muted, maxLines = 2)
     }
 }
 
 @Composable
 private fun ProjectRow(s: ProjectRepository.Summary, onOpen: () -> Unit, menu: (@Composable () -> Unit)? = null) {
-    val f = remember { SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault()) }
-    ElevatedCard(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+    val f = remember { SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault()) }
+    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+    SoftCard(Modifier.fillMaxWidth().clickable(onClick = onOpen), radius = 24.dp) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(soft.bg), contentAlignment = Alignment.Center) { GradientIcon(Icons.Default.GridOn, null) }
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(s.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(listOf(s.location.ifBlank { null }, formatArea(s.areaM2), "${s.waypoints} WP", f.format(Date(s.modified))).filterNotNull().joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                Text(s.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(listOfNotNull(s.location.ifBlank { null }, formatArea(s.areaM2), "${s.waypoints} WP").joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = soft.muted, maxLines = 1)
+                Text(f.format(Date(s.modified)), style = MaterialTheme.typography.labelSmall, color = soft.muted)
             }
             menu?.invoke()
         }
@@ -233,7 +246,7 @@ fun SettingsScreen(app: AeroGridApp, onBack: () -> Unit) {
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(16.dp)) {
             SectionTitle("Appearance")
             Dropdown("Theme", listOf(0, 1, 2), s.theme, { listOf("System", "Light", "Dark")[it] }) { v -> app.settings.update { it.copy(theme = v) } }
-            SwitchRow("Material You dynamic colour", s.dynamicColor, "Android 12+") { v -> app.settings.update { it.copy(dynamicColor = v) } }
+            SwitchRow("Use wallpaper colours (Material You)", s.materialYou, "Replaces the AeroGrid soft blue palette · Android 12+") { v -> app.settings.update { it.copy(materialYou = v) } }
             SectionTitle("DJI Fly mission format")
             Text("Drone enum ${s.drone.droneEnumValue} / sub ${s.drone.droneSubEnumValue}\nNamespace ${s.drone.namespace}\nSource: ${s.drone.source}", style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

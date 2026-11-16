@@ -48,7 +48,7 @@ fun WaypointSheet(vm: PlannerViewModel, ui: PlannerUi, batch: Boolean, onDismiss
     val index = p.waypoints.indexOfFirst { it.id == w.id }
     val advanced = ui.mode != Mode.QUICK
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = com.aerogrid.app.ui.theme.LocalSoft.current.bg) {
         Column(Modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (batch) "${targets.size} waypoints selected" else "WP%03d".format(index + 1), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -65,10 +65,8 @@ fun WaypointSheet(vm: PlannerViewModel, ui: PlannerUi, batch: Boolean, onDismiss
             }
             SectionTitle("Altitude")
             val individual = targets.all { it.heightOverride != null }
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                SegmentedButton(selected = !individual, onClick = { vm.updateWaypoints(ids) { it.copy(heightOverride = null) } }, shape = SegmentedButtonDefaults.itemShape(0, 2)) { Text("Global (%.0f m)".format(p.settings.heightM)) }
-                SegmentedButton(selected = individual, onClick = { vm.updateWaypoints(ids) { it.copy(heightOverride = it.heightOverride ?: p.settings.heightM) } }, shape = SegmentedButtonDefaults.itemShape(1, 2)) { Text("Individual") }
-            }
+            SoftSegmented(listOf(false, true), individual, { if (it) "Individual" else "Global (%.0f m)".format(p.settings.heightM) }, { ind ->
+                vm.updateWaypoints(ids) { if (ind) it.copy(heightOverride = it.heightOverride ?: p.settings.heightM) else it.copy(heightOverride = null) } }, Modifier.fillMaxWidth())
             val h = w.heightOverride ?: p.settings.heightM
             LabeledSlider("Height", h, 2.0..200.0, { "%.0f m".format(it) }) { v -> vm.updateWaypoints(ids) { it.copy(heightOverride = v) } }
             NumberField("Height (exact)", h, Modifier.fillMaxWidth(), suffix = "m") { v -> vm.updateWaypoints(ids) { it.copy(heightOverride = v.coerceIn(2.0, 500.0)) } }

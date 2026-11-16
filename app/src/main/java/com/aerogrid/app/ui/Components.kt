@@ -50,7 +50,7 @@ fun LabeledSlider(
             Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             Text(format(local.toDouble()), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
         }
-        Slider(value = local, onValueChange = { local = it; onLive?.invoke(it.toDouble()) }, valueRange = range.start.toFloat()..range.endInclusive.toFloat(), steps = steps,
+        SoftSlider(value = local, onValueChange = { local = it; onLive?.invoke(it.toDouble()) }, valueRange = range.start.toFloat()..range.endInclusive.toFloat(),
             onValueChangeFinished = { onChange(local.toDouble()) })
     }
 }
@@ -93,7 +93,7 @@ fun SwitchRow(label: String, checked: Boolean, sub: String? = null, onChange: (B
             Text(label, style = MaterialTheme.typography.labelLarge)
             sub?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Switch(checked = checked, onCheckedChange = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onChange(it) })
+        SoftSwitch(checked = checked, onCheckedChange = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onChange(it) })
     }
 }
 

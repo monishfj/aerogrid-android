@@ -8,6 +8,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -190,48 +193,33 @@ fun PlannerScreen(vm: PlannerViewModel, projectId: Long?, initialMode: Mode, set
         // ---------- top overlay ----------
         Column(Modifier.statusBarsPadding().padding(horizontal = 10.dp, vertical = 6.dp).fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                FilledTonalIconButton(onClick = { vm.save(); onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
-                        Mode.entries.forEachIndexed { i, m ->
-                            SegmentedButton(selected = ui.mode == m, onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.setMode(m) },
-                                shape = SegmentedButtonDefaults.itemShape(i, Mode.entries.size), icon = {}) { Text(m.label, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false) }
-                        }
-                    }
-                }
-                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f)) {
-                    Row {
-                        OverflowMenu(ui, onRename = { showRename = true }, onSave = { vm.save() }, onExport = { showExport = true }, onImport = doImport,
-                            onReverse = vm::reverseRoute, onReset = vm::resetRoute, onStyle = { s -> settingsStore.update { it.copy(mapStyle = s) } },
-                            onFootprints = { settingsStore.update { it.copy(showFootprints = !it.showFootprints) } }, footprints = settings.showFootprints, onOffline = doOffline)
-                    }
-                }
+                SoftIconTile(Icons.AutoMirrored.Filled.ArrowBack, "Back", onClick = { vm.save(); onBack() }, size = 46.dp)
+                SoftSegmented(Mode.entries, ui.mode, { it.label }, { vm.setMode(it) }, Modifier.weight(1f).padding(horizontal = 10.dp))
+                OverflowMenu(ui, onRename = { showRename = true }, onSave = { vm.save() }, onExport = { showExport = true }, onImport = doImport,
+                    onReverse = vm::reverseRoute, onReset = vm::resetRoute, onStyle = { s -> settingsStore.update { it.copy(mapStyle = s) } },
+                    onFootprints = { settingsStore.update { it.copy(showFootprints = !it.showFootprints) } }, footprints = settings.showFootprints, onOffline = doOffline)
             }
             SearchBox(ui, vm)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
-                val chipColors = androidx.compose.material3.AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-                if (ui.mode == Mode.QUICK && ui.project.hasAdvancedConfig) AssistChip(onClick = { vm.setMode(Mode.ADVANCED) }, label = { Text("Advanced Settings Applied") }, leadingIcon = { Icon(Icons.Default.Tune, null) }, colors = chipColors)
-                ui.measureText?.let { AssistChip(onClick = {}, label = { Text(it) }, colors = chipColors) }
+                if (ui.mode == Mode.QUICK && ui.project.hasAdvancedConfig) SoftChip("Advanced settings applied", { vm.setMode(Mode.ADVANCED) }, leading = { Icon(Icons.Default.Tune, null, Modifier.size(16.dp)) })
+                ui.measureText?.let { SoftChip(it, {}) }
                 if (ui.busy) LinearProgressIndicator(Modifier.width(80.dp).padding(top = 18.dp))
             }
         }
 
         // ---------- right-side map controls ----------
-        Column(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 122.dp, end = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 136.dp, end = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             var styleMenu by remember { mutableStateOf(false) }
             Box {
-                SmallFloatingActionButton(onClick = { styleMenu = true }) { Icon(Icons.Default.Layers, "Map style") }
+                SoftIconTile(Icons.Default.Layers, "Map style", onClick = { styleMenu = true })
                 DropdownMenu(styleMenu, { styleMenu = false }) {
                     listOf("Street map", "Satellite", "Hybrid").forEachIndexed { i, l -> DropdownMenuItem(text = { Text(l + if (settings.mapStyle == i) "  ✓" else "") }, onClick = { styleMenu = false; settingsStore.update { it.copy(mapStyle = i) } }) }
                 }
             }
-            SmallFloatingActionButton(onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); vm.toggle3D() },
-                containerColor = if (ui.threeD) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer) {
-                Text(if (ui.threeD) "2D" else "3D", fontWeight = FontWeight.Black, color = if (ui.threeD) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-            SmallFloatingActionButton(onClick = { if (ui.canUndo) vm.undo() }) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo", tint = if (ui.canUndo) androidx.compose.material3.LocalContentColor.current else Color.Gray) }
-            SmallFloatingActionButton(onClick = { if (ui.canRedo) vm.redo() }) { Icon(Icons.AutoMirrored.Filled.Redo, "Redo", tint = if (ui.canRedo) androidx.compose.material3.LocalContentColor.current else Color.Gray) }
-            SmallFloatingActionButton(onClick = { locPerm.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }) { Icon(Icons.Default.MyLocation, "My location") }
+            SoftIconTile(null, if (ui.threeD) "Switch to 2D" else "Switch to 3D", onClick = { vm.toggle3D() }, filled = ui.threeD, text = if (ui.threeD) "2D" else "3D")
+            SoftIconTile(Icons.AutoMirrored.Filled.Undo, "Undo", onClick = { vm.undo() }, enabled = ui.canUndo)
+            SoftIconTile(Icons.AutoMirrored.Filled.Redo, "Redo", onClick = { vm.redo() }, enabled = ui.canRedo)
+            SoftIconTile(Icons.Default.MyLocation, "My location", onClick = { locPerm.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }, selected = ui.myLocation != null)
         }
 
         // ---------- bottom panels ----------
@@ -262,7 +250,7 @@ private fun OverflowMenu(ui: PlannerUi, onRename: () -> Unit, onSave: () -> Unit
                          onStyle: (Int) -> Unit, onFootprints: () -> Unit, footprints: Boolean, onOffline: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(Icons.Default.MoreVert, "More") }
+        SoftIconTile(Icons.Default.MoreVert, "More", onClick = { open = true }, size = 46.dp)
         DropdownMenu(open, { open = false }) {
             val item = @Composable { t: String, f: () -> Unit -> DropdownMenuItem(text = { Text(t) }, onClick = { open = false; f() }) }
             item("Save mission", onSave); item("Rename / location…", onRename); item("Export / share…", onExport)
@@ -280,9 +268,10 @@ private fun SearchBox(ui: PlannerUi, vm: PlannerViewModel) {
     var open by remember { mutableStateOf(false) }
     Column(Modifier.padding(top = 6.dp)) {
         if (!open) {
-            Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), onClick = { open = true }) {
-                Row(Modifier.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, null, Modifier.size(18.dp)); HSpace(6)
+            val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+            Box(Modifier.neu(24.dp, 6.dp, soft.card).clip(RoundedCornerShape(24.dp)).background(soft.card).clickable { open = true }) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    GradientIcon(Icons.Default.Search, null, Modifier.size(20.dp)); HSpace(8)
                     Text(ui.project.name + if (ui.project.location.isNotBlank()) " · ${ui.project.location}" else " · search location", style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                 }
             }
@@ -461,15 +450,15 @@ private fun QuickSettingsSheet(ui: PlannerUi, vm: PlannerViewModel, onDismiss: (
 @Composable
 private fun SimulationPanel(ui: PlannerUi, vm: PlannerViewModel) {
     val sim = ui.sim ?: return; val st = sim.state
-    Card(Modifier.fillMaxWidth().padding(8.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(14.dp)) {
+    DockSurface {
+        Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = Color(0xFFFF6D00), shape = RoundedCornerShape(6.dp)) { Text(" SIMULATION — not an actual flight ", color = Color.White, style = MaterialTheme.typography.labelMedium) }
                 Box(Modifier.weight(1f))
                 IconButton(onClick = vm::stopSimulation) { Icon(Icons.Default.Close, "Close preview") }
             }
             if (st != null) {
-                LinearProgressIndicator(progress = { (st.elapsed / st.total.coerceAtLeast(1.0)).toFloat() }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
+                SoftProgress((st.elapsed / st.total.coerceAtLeast(1.0)).toFloat(), Modifier.padding(vertical = 10.dp))
                 Row {
                     StatCell("waypoint", "WP%03d".format(st.wpIndex + 1), Modifier.weight(1f)); StatCell("heading", "%.0f°".format(st.headingDeg), Modifier.weight(1f))
                     StatCell("height", "%.0f m".format(st.heightM), Modifier.weight(1f)); StatCell("photos", "${st.photos.size}", Modifier.weight(1f))
@@ -480,10 +469,13 @@ private fun SimulationPanel(ui: PlannerUi, vm: PlannerViewModel) {
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                FilledTonalIconButton(onClick = { if (sim.running) vm.pauseSimulation() else vm.resumeSimulation() }) { Icon(if (sim.running) Icons.Default.Pause else Icons.Default.PlayArrow, if (sim.running) "Pause" else "Resume") }
-                FilledTonalIconButton(onClick = vm::restartSimulation) { Icon(Icons.Default.Replay, "Restart") }
-                HSpace()
-                listOf(1f, 10f, 30f, 60f).forEach { x -> FilterChip(selected = sim.speed == x, onClick = { vm.setSimSpeed(x) }, label = { Text("${x.toInt()}×") }, modifier = Modifier.padding(end = 4.dp)) }
+                SoftIconTile(if (sim.running) Icons.Default.Pause else Icons.Default.PlayArrow, if (sim.running) "Pause" else "Resume", onClick = { if (sim.running) vm.pauseSimulation() else vm.resumeSimulation() }, filled = true, size = 50.dp)
+                HSpace(12)
+                SoftIconTile(Icons.Default.Replay, "Restart", onClick = vm::restartSimulation, size = 50.dp)
+                HSpace(14)
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(1f, 10f, 30f, 60f).forEach { x -> SoftChip("${x.toInt()}×", { vm.setSimSpeed(x) }, selected = sim.speed == x) }
+                }
             }
         }
     }
@@ -496,40 +488,32 @@ private fun AdvancedPanel(ui: PlannerUi, vm: PlannerViewModel, settings: com.aer
     var tab by remember { mutableIntStateOf(0) }
     var expanded by remember { mutableStateOf(false) }
     val tabs = listOf("Mapping", "Waypoints", "Analysis", "Terrain", "Blocks", "Export")
-    Card(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 12.dp, bottomEnd = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.98f)), elevation = CardDefaults.cardElevation(6.dp)) {
+    DockSurface {
         Column {
-            Box(Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp)) {
+            Box {
                 StatStrip(listOf("area" to com.aerogrid.app.engine.formatArea(ui.stats.areaM2), "waypoints" to "${ui.stats.waypointCount}", "lines" to "${ui.stats.lineCount}",
                     "time" to formatDuration(ui.stats.durationSec), "GSD" to "%.2f cm".format(ui.stats.gsdCm), "overlap" to "%.0f/%.0f%%".format(ui.stats.frontOverlap, ui.stats.sideOverlap), "missions" to "${ui.stats.missionCount}"), ui)
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 12.dp, horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 listOf(Tool.NONE, Tool.DRAW_BOUNDARY, Tool.FREEHAND, Tool.EDIT_SHAPES, Tool.DRAW_EXCLUSION, Tool.DRAW_CORRIDOR, Tool.EDIT_WAYPOINTS, Tool.ADD_WAYPOINT,
                     Tool.SET_TAKEOFF, Tool.SET_LANDING, Tool.MEASURE_DISTANCE, Tool.MEASURE_AREA).forEach { t ->
-                    FilterChip(selected = ui.tool == t, onClick = { vm.setTool(if (ui.tool == t) Tool.NONE else t) }, label = { Text(t.label) })
+                    SoftChip(t.label, { vm.setTool(if (ui.tool == t) Tool.NONE else t) }, selected = ui.tool == t)
                 }
-                AssistChip(onClick = vm::optimiseRoute, label = { Text("Optimise start") }, leadingIcon = { Icon(Icons.Default.SwapVert, null) })
-                AssistChip(onClick = vm::startSimulation, label = { Text("Preview") }, leadingIcon = { Icon(Icons.Default.PlayArrow, null) })
+                SoftChip("Optimise start", vm::optimiseRoute, leading = { Icon(Icons.Default.SwapVert, null, Modifier.size(16.dp)) })
+                SoftChip("Preview", vm::startSimulation, leading = { Icon(Icons.Default.PlayArrow, null, Modifier.size(16.dp)) })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val icons = listOf(Icons.Default.Tune, Icons.Default.Edit, Icons.Default.Explore, Icons.Default.Layers, Icons.Default.GridOn, Icons.Default.SendToMobile)
-                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     tabs.forEachIndexed { i, t ->
-                        val sel = tab == i && expanded
-                        Surface(onClick = { if (tab == i) expanded = !expanded else { tab = i; expanded = true } }, shape = RoundedCornerShape(50),
-                            color = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant) {
-                            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(icons[i], null, Modifier.size(18.dp), tint = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (sel) { HSpace(6); Text(t, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) }
-                            }
-                        }
+                        SoftIconTile(icons[i], t, onClick = { if (tab == i) expanded = !expanded else { tab = i; expanded = true } }, size = 46.dp, filled = tab == i && expanded)
                     }
                 }
                 IconButton(onClick = { expanded = !expanded }) { Icon(if (expanded) Icons.Default.ExpandMore else Icons.Default.ExpandLess, "Toggle panel") }
             }
             AnimatedVisibility(expanded) {
-                HorizontalDivider()
-                Box(Modifier.height(330.dp)) {
+                Text(tabs[tab], style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 10.dp, start = 4.dp))
+                Box(Modifier.height(330.dp).padding(top = 30.dp)) {
                     when (tab) {
                         0 -> MappingTab(vm, ui)
                         1 -> WaypointsTab(vm, ui, onBatch, onFocus)
