@@ -15,8 +15,8 @@ android {
         applicationId = "com.aerogrid.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // arm64 for phones (Galaxy S25 Ultra); x86_64 for the emulator. Drops unused native map libraries.
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
