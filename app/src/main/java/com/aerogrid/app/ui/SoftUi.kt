@@ -70,6 +70,7 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -169,7 +170,8 @@ fun SoftIconTile(icon: ImageVector?, contentDescription: String, onClick: () -> 
                 .then(if (filled) Modifier.shadow(10.dp, shape, ambientColor = s.gradEnd, spotColor = s.gradEnd) else Modifier.neu(size * 0.32f, 6.dp, s.card))
                 .clip(shape)
                 .then(if (filled) Modifier.background(s.gradient) else Modifier.background(s.card))
-                .clickable(enabled = enabled, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() },
+                .clickable(enabled = enabled, role = Role.Button) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() }
+                .semantics { this.contentDescription = contentDescription },
             contentAlignment = Alignment.Center,
         ) {
             when {

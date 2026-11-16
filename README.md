@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.svg" alt="AeroGrid — drone mapping missions for DJI Fly" width="100%">
+  <img src="docs/screenshots/hero.jpg" alt="AeroGrid — draw a survey area, preview the flight in 3D and fly it with DJI Fly" width="100%">
 </p>
 
 <p align="center">
@@ -9,17 +9,13 @@
   <img alt="MapLibre" src="https://img.shields.io/badge/Maps-MapLibre%20Native-396CB2">
   <img alt="DJI Fly KMZ" src="https://img.shields.io/badge/Export-DJI%20Fly%20KMZ-FFB300">
   <img alt="Tests" src="https://img.shields.io/badge/tests-44%20passing-2E7D32">
+  <a href="../../releases/latest"><img alt="Latest release" src="https://img.shields.io/badge/release-v1.1.2-3B2CF6"></a>
 </p>
 
 <p align="center">
   <b>Draw an area. Get a mapping grid. Fly it with DJI Fly.</b><br>
   A native Android planner for photogrammetry and orthomosaic missions on the <b>DJI Mini 5 Pro</b>,<br>
   with live overlap checks, a 3D preview of the flight and a safe hand-off into DJI Fly.
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/hero-3d.jpg" alt="AeroGrid 3D view: survey grid floating at 50 m with waypoint pillars and the camera footprint column" width="88%">
-  <br><sub>3D view over Tavua, Fiji — the grid floats at flight height, pillars drop to the ground, and the yellow column is the camera's field of view showing photo overlap.</sub>
 </p>
 
 ---
@@ -29,7 +25,7 @@
 | ⚡ **Quick** | 📍 **Manual** | 🛠️ **Advanced** |
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/quick-grid.jpg" width="240" alt="Quick mode with generated grid"> | <img src="docs/screenshots/manual-mode.jpg" width="240" alt="Manual mode with waypoint cards"> | <img src="docs/screenshots/advanced-mode.jpg" width="240" alt="Advanced mode with tool chips and tabs"> |
-| Draw a boundary, tap **Generate**, transfer. Height, line spacing, overlap and speed sit on one-tap chips — everything else is automatic. | Plot your own waypoints by tapping the map, tune each one (height, speed, gimbal, heading, actions), save a DJI-compatible KMZ. | Every parameter: patterns, exclusion zones, corridors, terrain, camera sensor, waypoint table, mission blocks and all export formats. |
+| Draw a boundary, tap **Generate**, transfer. A timeline guides each step; height, line spacing, overlap and speed are one-tap chips with a drag ruler — everything else is automatic. | Tap the map to drop waypoints, tune each one from its card (height, speed, gimbal, heading, actions), then save a DJI-compatible KMZ or transfer it. | Every parameter: patterns, exclusion zones, corridors, terrain, camera sensor, waypoint table, overlap gauges, mission blocks and all export formats. |
 
 All three modes edit **the same mission** — switch at any time without losing a single waypoint or height override.
 
@@ -57,10 +53,15 @@ flowchart LR
     <td align="center"><img src="docs/screenshots/line-spacing-warning.jpg" width="200" alt="Line spacing scrubber with overlap warning"><br><sub><b>Smart spacing</b><br>overlap rating + one-tap fix</sub></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/3d-view.jpg" width="200" alt="3D view"><br><sub><b>3D view</b><br>route at real height</sub></td>
+    <td align="center"><img src="docs/screenshots/3d-view.jpg" width="200" alt="3D view"><br><sub><b>3D view</b><br>route at real height, camera cone</sub></td>
     <td align="center"><img src="docs/screenshots/3d-flight-preview.jpg" width="200" alt="3D flight simulation"><br><sub><b>Flight preview</b><br>simulated drone & photos</sub></td>
     <td align="center"><img src="docs/screenshots/waypoint-editor.jpg" width="200" alt="Waypoint editor"><br><sub><b>Edit a waypoint</b><br>individual heights kept</sub></td>
     <td align="center"><img src="docs/screenshots/transfer-manager.jpg" width="200" alt="Transfer manager"><br><sub><b>Transfer</b><br>validated KMZ per mission block</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/manual-mode.jpg" width="200" alt="Manual mode"><br><sub><b>Manual</b><br>your own waypoints</sub></td>
+    <td align="center"><img src="docs/screenshots/advanced-mode.jpg" width="200" alt="Advanced analysis"><br><sub><b>Advanced</b><br>overlap gauges & analysis</sub></td>
+    <td></td><td></td>
   </tr>
 </table>
 
@@ -72,10 +73,11 @@ flowchart LR
 - 🧩 Grids clip to any concave boundary, route **around** exclusion zones (never through them), and split automatically into battery-sized missions under the 200-waypoint limit.
 - 🏔️ Optional terrain from SRTM `.hgt` / ESRI `.asc` DEMs: per-waypoint heights for true above-ground altitude, terrain profile and clearance warnings.
 
-**A map-first interface**
+**A map-first, soft interface**
+- 🎨 Soft "neumorphic" design: Montserrat type, raised white cards, blue→indigo gradient controls, light and dark themes.
 - 🗺️ Satellite, street and hybrid maps (MapLibre), offline street maps, location search, GPS.
 - 🧊 **3D view** — elevated route ribbons, waypoint pillars, boundary walls, the camera's field-of-view pyramid and overlapping ground footprints.
-- 🎛️ **Mission dock** — stat strip with an issues badge, a workflow rail that highlights your next step, and parameter chips with a drag-to-scrub ruler and haptic ticks.
+- 🎛️ **Mission dock** — stat strip with an issues badge, a timeline that highlights your next step, and parameter chips with a drag-to-scrub ruler and haptic ticks.
 - ↩️ Undo/redo everything, drag waypoints and vertices, multi-select and batch edit.
 
 **Getting it into DJI Fly**
@@ -131,12 +133,12 @@ flowchart TB
 
 | Layer | Tech |
 |---|---|
-| Language & UI | Kotlin 2.0, Jetpack Compose, Material 3 (dynamic colour, light/dark) |
+| Language & UI | Kotlin 2.0, Jetpack Compose, Material 3 with a custom soft theme and Montserrat (Material You optional) |
 | Maps | MapLibre Native 11 — OpenFreeMap streets, Esri World Imagery, offline regions |
 | Geometry | JTS Topology Suite — clipping, buffering, visibility-graph routing |
 | Storage | Room + kotlinx.serialization |
 | DJI transfer | Shizuku API, Storage Access Framework, MediaStore |
-| Build | Gradle 8.13, AGP 8.13, R8 shrinking (25 MB APK, arm64 + x86_64) |
+| Build | Gradle 8.13, AGP 8.13, R8 shrinking (26 MB APK, arm64 + x86_64) |
 
 <details>
 <summary><b>📁 Project layout</b></summary>
@@ -148,7 +150,7 @@ app/src/main/java/com/aerogrid/app/
 ├── io/         KML/KMZ/GeoJSON/GPX/CSV import/export, PDF/PNG reports, backups
 ├── transfer/   TransferEngine + Shizuku, SAF and Downloads implementations
 ├── data/       Room database, repository, settings
-└── ui/         Compose screens, mission dock, MapController, 3D scene builder
+└── ui/         Compose screens, soft UI kit, mission dock, MapController, 3D scene builder
 app/src/test/   44 unit tests (geometry, grids, exclusions, overlap, WPML, formats, transfer recovery, terrain)
 tools/          djifly_transfer.ps1 — USB placeholder replacement with backup + hash check
 ```
@@ -156,4 +158,4 @@ tools/          djifly_transfer.ps1 — USB placeholder replacement with backup 
 
 ## 🙏 Credits
 
-Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors via [OpenFreeMap](https://openfreemap.org/) · Imagery © Esri, Maxar, Earthstar Geographics · Built with [MapLibre Native](https://maplibre.org/), [JTS](https://github.com/locationtech/jts) and [Shizuku](https://github.com/RikkaApps/Shizuku). DJI, DJI Fly and DJI Mini are trademarks of SZ DJI Technology Co., Ltd.; AeroGrid is an independent project and is not affiliated with DJI.
+Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors via [OpenFreeMap](https://openfreemap.org/) · Imagery © Esri, Maxar, Earthstar Geographics · Built with [MapLibre Native](https://maplibre.org/), [JTS](https://github.com/locationtech/jts) and [Shizuku](https://github.com/RikkaApps/Shizuku). Typeface [Montserrat](https://github.com/JulietaUla/Montserrat) (SIL Open Font License). DJI, DJI Fly and DJI Mini are trademarks of SZ DJI Technology Co., Ltd.; AeroGrid is an independent project and is not affiliated with DJI.

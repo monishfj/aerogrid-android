@@ -368,9 +368,11 @@ fun ManualDock(ui: PlannerUi, vm: PlannerViewModel, onTransfer: () -> Unit, onBa
                 itemsIndexed(p.waypoints, key = { _, w -> w.id }) { i, w ->
                     val sel = w.id in ui.selected
                     val dot = when { i == 0 -> Color(0xFF00C853); i == p.waypoints.lastIndex -> Color(0xFFFF1744); w.hasOverrides -> Color(0xFFFF9100); else -> Color(0xFF1E88E5) }
-                    Column(Modifier.clip(RoundedCornerShape(14.dp)).background(if (sel) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
-                        .border(1.dp, if (sel) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
-                        .clickable { vm.openEditor(w.id) }.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+                    Column(Modifier.padding(vertical = 6.dp, horizontal = 2.dp)
+                        .then(if (sel) Modifier.shadow(8.dp, RoundedCornerShape(16.dp), ambientColor = soft.gradEnd, spotColor = soft.gradEnd) else Modifier.neu(16.dp, 4.dp, soft.card))
+                        .clip(RoundedCornerShape(16.dp)).background(if (sel) soft.gradient else Brush.horizontalGradient(listOf(soft.card, soft.card)))
+                        .clickable { vm.openEditor(w.id) }.padding(horizontal = 12.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).clip(CircleShape).background(dot)); Spacer(Modifier.width(4.dp)); Text("${i + 1}", fontWeight = FontWeight.Black) }
                         Text("%.0f m".format(p.heightOf(w)), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -386,14 +388,9 @@ fun ManualDock(ui: PlannerUi, vm: PlannerViewModel, onTransfer: () -> Unit, onBa
         )
         ParamBar(params, open, { open = it }, trailing = {
             val photo = s.capture == CaptureStrategy.WAYPOINT_PHOTO
-            Surface(onClick = { vm.setPhotoAtEachWaypoint(!photo) }, shape = RoundedCornerShape(14.dp), color = if (photo) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) { Text("Photo at WPs", fontSize = 10.sp); Text(if (photo) "On" else "Off", fontWeight = FontWeight.Bold) }
-            }
+            OptionPill("Photo at WPs", if (photo) "On" else "Off", selected = photo) { vm.setPhotoAtEachWaypoint(!photo) }
             Box {
-                Surface(onClick = { finishMenu = true }, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) { Text("When finished", fontSize = 10.sp); Text(s.finishAction.label, fontWeight = FontWeight.Bold, maxLines = 1) }
-                }
+                OptionPill("When finished", s.finishAction.label) { finishMenu = true }
                 DropdownMenu(finishMenu, { finishMenu = false }) {
                     com.aerogrid.app.model.FinishAction.entries.forEach { f -> DropdownMenuItem(text = { Text(f.label) }, onClick = { finishMenu = false; vm.updateSettings(false) { it.copy(finishAction = f) } }) }
                 }
@@ -405,3 +402,18 @@ fun ManualDock(ui: PlannerUi, vm: PlannerViewModel, onTransfer: () -> Unit, onBa
 }
 
 @Suppress("unused") private fun pct(x: Double) = (x * 100).roundToInt()
+
+
+/** Two-line option pill matching the parameter chips (label + value); gradient when [selected]. */
+@Composable
+fun OptionPill(label: String, value: String, selected: Boolean = false, onClick: () -> Unit) {
+    val soft = com.aerogrid.app.ui.theme.LocalSoft.current
+    val fg = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
+    Column(Modifier.padding(vertical = 6.dp)
+        .then(if (selected) Modifier.shadow(10.dp, RoundedCornerShape(18.dp), ambientColor = soft.gradEnd, spotColor = soft.gradEnd) else Modifier.neu(18.dp, 5.dp, soft.card))
+        .clip(RoundedCornerShape(18.dp)).background(if (selected) soft.gradient else Brush.horizontalGradient(listOf(soft.card, soft.card)))
+        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick).padding(horizontal = 14.dp, vertical = 7.dp)) {
+        Text(label, fontSize = 10.sp, color = if (selected) fg.copy(alpha = 0.85f) else soft.muted, maxLines = 1)
+        Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, maxLines = 1, color = fg)
+    }
+}
